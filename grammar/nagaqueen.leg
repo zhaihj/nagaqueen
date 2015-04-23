@@ -1227,7 +1227,8 @@ EoledStatement =  ( WS Return
                   | WS Expr
                   )
 
-Conditional = (If | Else)
+Conditional = (s:If
+               (WS e:Else { nq_onElseMatched(core->this, s, e); $$=s; } )? )
 
 Block   = (
            '{' { tokenPos; nq_onBlockStart(core->this); }
@@ -1250,7 +1251,7 @@ Else    = (
           )              { $$=nq_onElseEnd(core->this); }
 
 Case    = CASE_KW  { tokenPos; nq_onCaseStart(core->this); }
-        (- v:CaseExpr { nq_onCaseExpr(core->this, v); })?
+        (- v:CaseExpr { nq_onCaseExpr(core->this, v); } (WS "," WS v:CaseExpr { nq_onCaseExprList(core->this, v)})* )?
         WS DOUBLE_ARROW ~{ throwError(NQE_EXP_DOUBLE_ARROW, "Expected double arrow after case expression!\n"); }
          (WS
           (s:Stmt  { nq_onStatement(core->this, s) })
@@ -1611,8 +1612,8 @@ B_AND        = !L_AND '&' !'='  -
 EQUALS       = '=='  -
 NOT_EQUALS   = '!='  -
 
-LESSTHAN     = '<'  !'=' -
-MORETHAN     = '>'  !'=' -
+LESSTHAN     = '<'  !('=' | '<')-
+MORETHAN     = '>'  !('=' | '>') -
 CMP          = '<=>' -
 LESSTHAN_EQ  = '<='  -
 MORETHAN_EQ  = '>='  -
@@ -1644,13 +1645,13 @@ Terminator = (CommentLine
              )
 WS         = ([ \t] | Comment | EOL)*
 
-OocDoc = "/**" < (!"*/" (EOL | .))* > "*/" { $$=nq_StringClone(yytext) } WS
-       | "///" < (!EOL .)*          > EOL  { $$=nq_StringClone(yytext) } WS
+OocDoc = "/**" !'*' < (!"*/" (EOL | .))* > "*/" { $$=nq_StringClone(yytext) } WS
+       | "///" !'/' < (!EOL .)*          > EOL  { $$=nq_StringClone(yytext) } WS
        | { $$="" }
 Comment = (CommentLine | CommentMultiLine)
-CommentLine = "//" !'/' (!EOL .)* EOL
-CommentMultiLine =    "/*" !'*' (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
-CommentMultiLineWithDocs = "/*" (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
+CommentLine = "//" ('/' '/'+)? (!EOL .)* EOL
+CommentMultiLine =    "/*" ('*' '*'+)? (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
+CommentMultiLineWithDocs = "/*" '*'? (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
 
 INT_LIT_SUFFIX = [uUlL]*
 FP_LIT_SUFFIX = ([fF] | [lL])?
