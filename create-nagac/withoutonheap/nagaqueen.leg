@@ -173,7 +173,6 @@ void yyInput(char *buf, int *result, int max_size, NagaQueenCore *core) {
 ///////////////////// callbacks def start, you may want to skip this ////////////////////////
 
 
-void nq_onVarDeclForcedMalloc(void *this);
 void nq_onFunctionVirtual(void *this);
 void nq_onFunctionOverride(void *this);
 
@@ -954,7 +953,6 @@ VarDeclFromExpr = ( doc: OocDoc
                         STATIC_KW { nq_onVarDeclStatic(core->this); }
                       | CONST_KW  { nq_onVarDeclConst (core->this); }
                       | PROTO_KW  { nq_onVarDeclProto (core->this); }
-                      | FORCEDMALLOC_KW {nq_onVarDeclForcedMalloc(core->this);}
                     ) &[^A-Za-z_0-9]
                   )*
                   - r:Expr { nq_onVarDeclExpr(core->this, r); }
@@ -1531,7 +1529,6 @@ ValueCore =
         | v:VariableAccess                                 { tokenPos; $$=nq_onVarAccess(core->this, NULL, v); }
         )
 
-FORCEDMALLOC_KW = "__onheap__"
 VIRTUAL_KW = "virtual"
 OVERRIDE_KW = "override"
 

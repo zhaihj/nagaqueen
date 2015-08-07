@@ -281,7 +281,6 @@ void nq_onOperatorBodyStart(void *this);
 void nq_onOperatorEnd(void *this);
 
 void nq_onFunctionStart(void *this, char *name, char *doc);
-void nq_onFunctionACS(void *this);
 void nq_onFunctionExtern(void *this, char *externName);
 void nq_onFunctionUnmangled(void *this, char *unmangledName);
 void nq_onFunctionAbstract(void *this);
@@ -343,7 +342,6 @@ void *nq_onBlockEnd(void *this);
 
 void nq_onIfStart(void *this, void *condition);
 void *nq_onIfEnd(void *this);
-void nq_onElseMatched(void *this, void *_if, void *_else);
 void nq_onElseStart(void *this);
 void *nq_onElseEnd(void *this);
 
@@ -381,7 +379,6 @@ void *nq_onAssignMul(void *this, void *left, void *right);
 void *nq_onAssignExp(void *this, void *left, void *right);
 void *nq_onAssignSub(void *this, void *left, void *right);
 void *nq_onAssignAdd(void *this, void *left, void *right);
-void *nq_onAssignMod(void *this, void *left, void *right);
 void *nq_onAssign(void *this, void *left, void *right);
 
 void *nq_onAdd(void *this, void *left, void *right);
@@ -515,7 +512,6 @@ ModuleCore = (WS 'version' { tokenPos }
           | WS Use WS
           | WS Decl WS
           | WS stmt:Stmt WS { nq_onStatement(core->this, stmt) }
-          | WS { tokenPos } OocDocCore { char *message = "Unexpected oocdoc comment"; throwTokenError(NQE_EXP_INC_IMP_STMT_OR_DECL, message) }
           )
 
 VersionSpec = ((- '(' - l:VersionSpec - ')') | (l:VersionCore))
@@ -619,7 +615,7 @@ OperatorDecl =
             ("@" { nq_onOperatorByref(core->this) })?
             - < ( "=>" | "<=>"| ">>="| "<<="| ">>" | "<<"
                 | ">=" | "<=" | "!=" | "==" | ">" | "<" | "!" | "??"
-                | "+=" | "-=" | "*=" | "**="| "/=" | "%=" | "+" | "-" | "**" | "/" | "*" | "=" 
+                | "+=" | "-=" | "*=" | "**="| "/=" | "+" | "-" | "**" | "/" | "*" | "="
                 | "[]="| "[]" | "&&" | "||" | "%" | "as" | "implicit as"
                 | "&=" | "|=" | "^=" | "&"  | "|" | "^" | "~"
                 ) >
@@ -684,7 +680,7 @@ FunctionDeclBody = (
                 WS CLOS_PAREN ~{ throwError(NQE_EXP_ARG, "Malformed function argument (remember, it's `name: Type` in ooc, not `Type name`)\n") }
                               { nq_onFunctionArgsEnd(core->this) }
             )?
-            
+
             # optional suffix
             (
             - '~' suffix:IDENT { throwTokenError(NQE_MISPLACED_SUFFIX, "Misplaced function suffix (remember, it's `name: func ~suffix (args)`, not `name: func (args) ~suffix`") }
@@ -702,8 +698,7 @@ FunctionDeclBody = (
                 { nq_onFunctionBody(core->this); }
                 WS '{' WS
                 (WS
-                ( s:Stmt  { nq_onStatement(core->this, s) }
-                | { tokenPos } OocDocCore { char *message = "Unexpected oocdoc comment"; throwTokenError(NQE_EXP_STATEMENT_OR_CLOSING_BRACKET, message) })
+                (s:Stmt  { nq_onStatement(core->this, s) })
                 WS)*
                 WS CLOS_BRACK ~{ rewindWhiteSpace; throwError(NQE_EXP_STATEMENT_OR_CLOSING_BRACKET, "Malformed statement or closing bracket missing\n") }
             )?
@@ -772,6 +767,9 @@ EnumDecl    = (
 
             enumName:IDENT { tokenPos; nq_onEnumStart(core->this, enumName, doc); }
             - COLON
+
+            # modifiers (extern)
+            (- externName:ExternName { nq_onEnumExtern(core->this, externName); })?
 
             - ENUM_KW
 
@@ -986,6 +984,7 @@ ConventionalVarDecl =
                 | PROTO_KW  { nq_onVarDeclProto (core->this); }
                 | externName:ExternName { nq_onVarDeclExtern(core->this, externName); }
                 | unmangledName:UnmangledName { nq_onVarDeclUnmangled(core->this, unmangledName); }
+                | FORCEDMALLOC_KW {nq_onVarDeclForcedMalloc(core->this);}
               )
             )*
             WS Type { nq_onVarDeclType(core->this, $$); }
@@ -1237,8 +1236,7 @@ EoledStatement =  ( WS Return
                   | WS Expr
                   )
 
-Conditional = (s:If
-               (WS e:Else { nq_onElseMatched(core->this, s, e); $$=s; } )? )
+Conditional = (If | Else)
 
 Block   = (
            '{' { tokenPos; nq_onBlockStart(core->this); }
@@ -1340,7 +1338,7 @@ CaseExpr = ( v:VariableDecl -
 
 DoubleArrow = l:Assignment
               DOUBLE_ARROW { tokenPos; } WS r:Expr        ~{  missingOp("=>") } { $$=l=nq_onDoubleArrow(core->this, l, r); }
-            
+
 #operators
 
 BinaryOperation = Assignment
@@ -1350,7 +1348,6 @@ Assignment = l: Ternary
                 # The following line is actually the only case where AnonymousFunctionDecl makes sense at this level of precedence.
                 | ASS            { tokenPos; }  WS   r: AnonymousFunctionDecl ~{  missingOp("=") }   { $$=l=nq_onAssign(core->this, l, r); }
                 | ASS_ADD        { tokenPos; }  WS   r: Ternary               ~{  missingOp("+=") }  { $$=l=nq_onAssignAdd(core->this, l, r); }
-                | ASS_MOD        { tokenPos; }  WS   r: Ternary               ~{  missingOp("%=") }  { $$=l=nq_onAssignMod(core->this, l, r); }
                 | ASS_SUB        { tokenPos; }  WS   r: Ternary               ~{  missingOp("-=") }  { $$=l=nq_onAssignSub(core->this, l, r); }
                 | ASS_MUL        { tokenPos; }  WS   r: Ternary               ~{  missingOp("*=") }  { $$=l=nq_onAssignMul(core->this, l, r); }
                 | ASS_EXP        { tokenPos; }  WS   r: Ternary               ~{  missingOp("**=") }  { $$=l=nq_onAssignExp(core->this, l, r); }
@@ -1473,7 +1470,7 @@ FunctionCallNoname = { tokenPos; nq_onFunctionCallStart(core->this, ""); }
                FunctionCallCore { $$=nq_onFunctionCallEnd(core->this); }
 
 ACS = (
-        { tokenPos; nq_onFunctionStart(core->this, "", ""); nq_onFunctionACS(core->this); nq_onFunctionArgsStart(core->this); }
+        { tokenPos; nq_onFunctionStart(core->this, "", ""); nq_onFunctionArgsStart(core->this); }
         '|' WS?
         ( i:IDENT { tokenPos; nq_onVarDeclStart(core->this); nq_onVarDeclName(core->this, i, ""); nq_onStatement(core->this, nq_onVarDeclEnd(core->this));  }
           (WS ',' WS)?
@@ -1547,6 +1544,8 @@ INTERFACE_KW = "interface"
 FROM_KW      = "from"
 ABSTRACT_KW  = "abstract"
 FINAL_KW     = "final"
+
+
 STATIC_KW    = "static"
 INLINE_KW    = "inline"
 EXTENDS_KW   = "extends"
@@ -1601,7 +1600,6 @@ ASS_DECL     = ':='  -
 PROPASS_DECL = '::='  -
 ASS          = !DOUBLE_ARROW '=' -
 ASS_ADD      = '+='  -
-ASS_MOD      = '%='  -
 ASS_SUB      = '-='  -
 ASS_EXP      = '**='  -
 ASS_MUL      = '*='  -
@@ -1628,8 +1626,8 @@ B_AND        = !L_AND '&' !'='  -
 EQUALS       = '=='  -
 NOT_EQUALS   = '!='  -
 
-LESSTHAN     = '<' !('=' | '<') -
-MORETHAN     = '>' !('=' | '>') -
+LESSTHAN     = '<'  !'=' -
+MORETHAN     = '>'  !'=' -
 CMP          = '<=>' -
 LESSTHAN_EQ  = '<='  -
 MORETHAN_EQ  = '>='  -
@@ -1661,13 +1659,13 @@ Terminator = (CommentLine
              )
 WS         = ([ \t] | Comment | EOL)*
 
-OocDocCore = "/**" !'*' < (!"*/" (EOL | .))* > "*/" { $$=nq_StringClone(yytext) } WS
-           | "///" !'/' < (!EOL .)*          > EOL  { $$=nq_StringClone(yytext) } WS
-OocDoc = OocDocCore | { $$="" }
-Comment = !OocDocCore (CommentLine | CommentMultiLine)
-CommentLine = "//" (!EOL .)* EOL
-CommentMultiLine =    "/*" (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
-CommentMultiLineWithDocs = "/*" '*'? (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
+OocDoc = "/**" < (!"*/" (EOL | .))* > "*/" { $$=nq_StringClone(yytext) } WS
+       | "///" < (!EOL .)*          > EOL  { $$=nq_StringClone(yytext) } WS
+       | { $$="" }
+Comment = (CommentLine | CommentMultiLine)
+CommentLine = "//" !'/' (!EOL .)* EOL | "////" ("/")* (!EOL .)* EOL
+CommentMultiLine =    "/*" !'*' (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
+CommentMultiLineWithDocs = "/*" (!"*/" (EOL | CommentMultiLineWithDocs | .))* CLOS_COMMENT ~{ throwError(NQE_UNCLOSED_COMMENT, "Unclosed multi-line comment!\n"); }
 
 INT_LIT_SUFFIX = [uUlL]*
 FP_LIT_SUFFIX = ([fF] | [lL])?
@@ -1682,14 +1680,14 @@ IDENT_CORE   = !(KW ![A-Za-z0-9_])  # a keyword is not an ident
                < [a-zA-Z_][0-9a-zA-Z_]* > { $$=yytext; }
                ( '?' { $$=nq_trailingQuest($$); }
                | '!' { $$=nq_trailingBang($$); })?
-               
+
 SINGLE_QUOTE = '\''
 DOUBLE_QUOTE = '"'
 
 RAW_STRING_LIT = 'c' s:STRING_LIT { nq_onRawStringLiteral(core->this, s); }
 
 # Strings are split into text chuncks and interpolated expressions
-StringChunk  = Interpolation | TextChunk 
+StringChunk  = Interpolation | TextChunk
 
 Interpolation= !'"' !"\\" "#{" - e: Expr - "}"
                 { nq_onStringInterpolation(core->this, e); }
@@ -1786,3 +1784,4 @@ int nq_parse(void *this, char *path) {
     return 0;
 
 }
+
