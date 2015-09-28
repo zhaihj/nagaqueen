@@ -172,7 +172,6 @@ void yyInput(char *buf, int *result, int max_size, NagaQueenCore *core) {
 
 ///////////////////// callbacks def start, you may want to skip this ////////////////////////
 
-
 void nq_onVarDeclForcedMalloc(void *this);
 void nq_onFunctionVirtual(void *this);
 void nq_onFunctionOverride(void *this);
@@ -211,7 +210,6 @@ void nq_onCoverImplements(void *this, void *type);
 void nq_onCoverEnd(void *this);
 
 void nq_onEnumStart(void *this, char *name, char *doc);
-void nq_onEnumExtern(void *this, char *externName);
 void nq_onEnumFromType(void *this, void *fromType);
 void nq_onEnumIncrementExpr(void *this, char oper, void *step);
 void nq_onEnumElementStart(void *this, char *name, char *doc);
@@ -651,8 +649,8 @@ RegularFunctionDecl =
                 | INLINE_KW   { nq_onFunctionInline(core->this) }
                 | FINAL_KW    { nq_onFunctionFinal(core->this) }
                 | PROTO_KW    { nq_onFunctionProto(core->this) }
-		| VIRTUAL_KW  { nq_onFunctionVirtual(core->this) }
-		| OVERRIDE_KW { nq_onFunctionOverride(core->this) }
+				| VIRTUAL_KW  { nq_onFunctionVirtual(core->this) }
+				| OVERRIDE_KW { nq_onFunctionOverride(core->this) }
                 )
             )*
 
@@ -954,7 +952,7 @@ VarDeclFromExpr = ( doc: OocDoc
                         STATIC_KW { nq_onVarDeclStatic(core->this); }
                       | CONST_KW  { nq_onVarDeclConst (core->this); }
                       | PROTO_KW  { nq_onVarDeclProto (core->this); }
-                      | FORCEDMALLOC_KW {nq_onVarDeclForcedMalloc(core->this);}
+					  | FORCEDMALLOC_KW {nq_onVarDeclForcedMalloc(core->this);}
                     ) &[^A-Za-z_0-9]
                   )*
                   - r:Expr { nq_onVarDeclExpr(core->this, r); }
@@ -986,6 +984,7 @@ ConventionalVarDecl =
                 | PROTO_KW  { nq_onVarDeclProto (core->this); }
                 | externName:ExternName { nq_onVarDeclExtern(core->this, externName); }
                 | unmangledName:UnmangledName { nq_onVarDeclUnmangled(core->this, unmangledName); }
+				| FORCEDMALLOC_KW {nq_onVarDeclForcedMalloc(core->this);}
               )
             )*
             WS Type { nq_onVarDeclType(core->this, $$); }
@@ -1585,7 +1584,7 @@ NULL_KW      = "null"
 KW           = BREAK_KW | CONTINUE_KW | RETURN_KW | FUNC_KW
              | COVER_KW | ENUM_KW | FROM_KW | ABSTRACT_KW | FINAL_KW
              | STATIC_KW | INLINE_KW | EXTENDS_KW | EXTERN_KW | UNMANGLED_KW
-             | IMPORT_KW | INCLUDE_KW | IF_KW | ELSE_KW | FOR_KW
+             | IF_KW | ELSE_KW | FOR_KW
              | WHILE_KW | AS_KW | OPERATOR_KW | CONST_KW | NULL_KW | MATCH_KW | CASE_KW
              | TRY_KW | CATCH_KW
 
