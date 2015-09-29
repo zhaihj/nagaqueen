@@ -317,6 +317,7 @@ void nq_onTupleStart(void *this);
 void *nq_onTupleEnd(void *this);
 
 void nq_onRawStringLiteral(void *this, void *object);
+void nq_onTextLiteral(void *this, void *object);
 
 void nq_onStringLiteralStart(void *this);
 void nq_onStringInterpolation(void *this, void *expression);
@@ -1518,6 +1519,7 @@ ValueCore =
         | f:FLOAT_LIT -                                    { tokenPos; $$=nq_onFloatLiteral(core->this, yytext); }
         | d:DEC_LIT -                                      { tokenPos; $$=nq_onDecLiteral(core->this, yytext); }
         | r: RAW_STRING_LIT -
+        | z: TEXT_STRING_LIT -
         | s:STRING_LIT -
         | c:CHAR_LIT -
         | b:BOOL_LIT  -                                    { tokenPos; $$=nq_onBoolLiteral(core->this, $$); }
@@ -1686,6 +1688,7 @@ SINGLE_QUOTE = '\''
 DOUBLE_QUOTE = '"'
 
 RAW_STRING_LIT = 'c' s:STRING_LIT { nq_onRawStringLiteral(core->this, s); }
+TEXT_STRING_LIT = 't' s:STRING_LIT { nq_onTextLiteral(core->this, s); }
 
 # Strings are split into text chuncks and interpolated expressions
 StringChunk  = Interpolation | TextChunk 
