@@ -524,7 +524,8 @@ VersionSpec = ((- '(' - l:VersionSpec - ')') | (l:VersionCore))
 VersionCore = (VersionNegation | VersionName)
 
 VersionName = - < [a-zA-Z0-9_]+ > { tokenPos; $$=nq_onVersionName(core->this, yytext) }
-VersionNegation = - '!' { tokenPos; } - spec:VersionSpec { $$=nq_onVersionNegation(core->this, spec) }
+VersionNegation = (- '!' { tokenPos; } - spec:VersionName { $$=nq_onVersionNegation(core->this, spec) }) |
+                   (- '!' { tokenPos; } - '(' - spec:VersionSpec - ')' { $$=nq_onVersionNegation(core->this, spec) })
 
 Use = USE_KW [ \t]
       - UseCore
