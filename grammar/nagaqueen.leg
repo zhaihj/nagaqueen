@@ -1655,7 +1655,7 @@ CLOS_PAREN    = ')'
 CLOS_COMMENT  = '*/'
 
 UNARY_PLUS = '+' ('+' { throwError(NQE_EXP_INC_IMP_STMT_OR_DECL, "Increment operator is not allowed!\n"); })?
-UNARY_MINUS = '-' ('+' { throwError(NQE_EXP_INC_IMP_STMT_OR_DECL, "Decrement operator is not allowed!\n"); })?
+UNARY_MINUS = '-' ('-' { throwError(NQE_EXP_INC_IMP_STMT_OR_DECL, "Decrement operator is not allowed!\n"); })?
 
 -          = ([ \t] | CommentMultiLine)*
 EOL        = ('\n' | '\r\n' | '\r')  { core->yylineno++; }
