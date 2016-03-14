@@ -1488,10 +1488,10 @@ ACS = (
 
 VariableAccess = i:IDENT_CORE
 
-Value   = ('-' - '(' { tokenPos; } WS inner:Expr WS ')' { $$=nq_onUnaryMinus(core->this, nq_onParenthesis(core->this, inner)); } -)
-        | ('+' - '(' { tokenPos; } WS inner:Expr WS ')' { $$=nq_onUnaryPlus(core->this, nq_onParenthesis(core->this, inner)); } -)
-        | ('-' - { tokenPos; } access:SafeNavAccess { $$=nq_onUnaryMinus(core->this, access); })
-        | ('+' - { tokenPos; } access:SafeNavAccess { $$=nq_onUnaryPlus(core->this, access); })
+Value   = (UNARY_MINUS - '(' { tokenPos; } WS inner:Expr WS ')' { $$=nq_onUnaryMinus(core->this, nq_onParenthesis(core->this, inner)); } -)
+        | (UNARY_PLUS - '(' { tokenPos; } WS inner:Expr WS ')' { $$=nq_onUnaryPlus(core->this, nq_onParenthesis(core->this, inner)); } -)
+        | (UNARY_MINUS - { tokenPos; } access:SafeNavAccess { $$=nq_onUnaryMinus(core->this, access); })
+        | (UNARY_PLUS - { tokenPos; } access:SafeNavAccess { $$=nq_onUnaryPlus(core->this, access); })
         | ('(' { tokenPos; } WS inner:Expr WS ')' { $$=nq_onParenthesis(core->this, inner); } ('&' ![&=] { $$=nq_onAddressOf(core->this, $$); })? -)
         | ValueCore
 
@@ -1653,6 +1653,9 @@ CLOS_BRACK    = '}'
 CLOS_SQUAR    = ']'
 CLOS_PAREN    = ')'
 CLOS_COMMENT  = '*/'
+
+UNARY_PLUS = '+' !'+'
+UNARY_MINUS = '-' !'-'
 
 -          = ([ \t] | CommentMultiLine)*
 EOL        = ('\n' | '\r\n' | '\r')  { core->yylineno++; }
